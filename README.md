@@ -31,10 +31,11 @@ Des encodeurs déportés seront rajoutés par la suite
 
 ## ⚙️ Liste du matériel utilisé
 
-Les moteurs : 128,40€  : https://fr.aliexpress.com/item/4000414958534.html?spm=a2g0o.order_list.order_list_main.5.3e245e5bDmvX9Y&gatewayAdapt=glo2fra ( version DC24  i5 1640 RPM)
-Un gros BAU résistant à 25A : 13.69€ https://fr.aliexpress.com/item/1005004163545345.html?spm=a2g0o.order_list.order_list_main.10.3e245e5bDmvX9Y&gatewayAdapt=glo2fra ( version SA2-M3 - REDLED )
-2 nouveaux blocs pour batteries makita avec interrupteur : 20.77€ https://fr.aliexpress.com/item/1005009675112454.html?spm=a2g0o.order_list.order_list_main.20.3e245e5bDmvX9Y&gatewayAdapt=glo2fra
-3 KG de petg CF noir : 47.40€ https://fr.aliexpress.com/item/1005006759639025.html?spm=a2g0o.order_list.order_list_main.15.324b5e5bqGRehB&gatewayAdapt=glo2fra
-Contrôleur moteur : 47,80€ https://www.gotronic.fr/art-commande-moteur-cc-2x20-a-mdd20a-37247.htm
-ESP32 S3 : 8.99€ : https://fr.aliexpress.com/item/1005008867880664.html?spm=a2g0o.order_list.order_list_main.25.53de5e5bDqreen&gatewayAdapt=glo2fra ( version N16R8 Onboard KIT A )
+- Les moteurs : 128,40€  : https://fr.aliexpress.com/item/4000414958534.html?spm=a2g0o.order_list.order_list_main.5.3e245e5bDmvX9Y&gatewayAdapt=glo2fra ( version DC24  i5 1640 RPM)
+- Un gros BAU résistant à 25A : 13.69€ https://fr.aliexpress.com/item/1005004163545345.html?spm=a2g0o.order_list.order_list_main.10.3e245e5bDmvX9Y&gatewayAdapt=glo2fra ( version SA2-M3 - REDLED )
+- 2 nouveaux blocs pour batteries makita avec interrupteur : 20.77€ https://fr.aliexpress.com/item/1005009675112454.html?spm=a2g0o.order_list.order_list_main.20.3e245e5bDmvX9Y&gatewayAdapt=glo2fra
+- 3 KG de petg CF noir : 47.40€ https://fr.aliexpress.com/item/1005006759639025.html?spm=a2g0o.order_list.order_list_main.15.324b5e5bqGRehB&gatewayAdapt=glo2fra
+- Contrôleur moteur : 47,80€ https://www.gotronic.fr/art-commande-moteur-cc-2x20-a-mdd20a-37247.htm
+- ESP32 S3 : 8.99€ : https://fr.aliexpress.com/item/1005008867880664.html?spm=a2g0o.order_list.order_list_main.25.53de5e5bDqreen&gatewayAdapt=glo2fra ( version N16R8 Onboard KIT A )
+
 Total pour le moment : 268.05€ 
