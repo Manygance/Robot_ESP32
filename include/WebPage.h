@@ -1,5 +1,4 @@
 #pragma once
-
 const char* htmlPage = R"rawliteral(
 <!DOCTYPE HTML>
 <html>
@@ -21,8 +20,14 @@ const char* htmlPage = R"rawliteral(
     .input-zone { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: bold; color: #555; }
     .tours-input { width: 90px; padding: 5px; border: 2px solid #ccc; border-radius: 5px; text-align: center; font-weight: bold; }
     .action-col { display: flex; flex-direction: column; align-items: center; gap: 10px; }
-    .rpm-box { border: 3px solid #333; border-radius: 10px; padding: 5px 15px; text-align: center; font-size: 13px; font-weight: bold; color: #333; min-width: 90px; }
-    .rpm-value { font-size: 18px; color: #007bff; display: block; margin-top: 2px; }
+    
+    /* NOUVEAU STYLE POUR LA TÉLÉMÉTRIE */
+    .telemetry-box { border: 3px solid #333; border-radius: 10px; padding: 5px 10px; text-align: center; font-size: 11px; font-weight: bold; color: #333; min-width: 110px; background: #f8f9fa; }
+    .telemetry-row { display: flex; justify-content: space-between; align-items: center; margin: 3px 0; }
+    .speed-val { font-size: 16px; color: #007bff; }
+    .pwm-val { font-size: 16px; color: #dc3545; }
+    .divider { border-top: 1px solid #ccc; margin: 4px 0; }
+
     .action-buttons { display: flex; gap: 10px; width: 100%; }
     .send-btn, .stop-btn { flex: 1; padding: 8px; font-size: 12px; font-weight: bold; color: white; border: none; border-radius: 6px; cursor: pointer; }
     .send-btn { background-color: #333; }
@@ -47,8 +52,8 @@ const char* htmlPage = R"rawliteral(
     </div>
     <div class="card config-zone gamepad-zone" id="gamepad-ui" style="flex: 1; min-width: 280px; margin: 0;">
       <div class="gamepad-slider-group">
-        <label>🎮 Limite Vitesse : <span id="val-gamepad-max">50</span>%</label>
-        <input type="range" id="gamepad-max" min="5" max="100" value="50" oninput="document.getElementById('val-gamepad-max').innerText = this.value">
+        <label>🎮 Limite Vitesse : <span id="val-gamepad-max">800</span> mm/s</label>
+        <input type="range" id="gamepad-max" min="100" max="1500" step="50" value="800" oninput="document.getElementById('val-gamepad-max').innerText = this.value">
       </div>
       <div class="gamepad-slider-group">
         <label>🔄 Sensibilité Virage : <span id="val-gamepad-sens">60</span>%</label>
@@ -56,16 +61,17 @@ const char* htmlPage = R"rawliteral(
       </div>
     </div>
   </div>
+  
   <div class="card motor-row" style="border: 2px solid #007bff; margin-top: 10px;">
     <div class="motor-label" style="background:#007bff; color:white; border-color:#0056b3;">ROBOT<br><small>(Tous)</small></div>
     <div class="mode-col">
       <button id="btn-m0-FWD" class="state-btn active" onclick="setMode(0, 'FWD')">FWD</button>
       <button id="btn-m0-BWD" class="state-btn" onclick="setMode(0, 'BWD')">BWD</button>
-      <button id="btn-m0-TOURS" class="state-btn" onclick="setMode(0, 'TOURS')">TOURS</button>
+      <button id="btn-m0-DIST" class="state-btn" onclick="setMode(0, 'DIST')">DIST.</button>
     </div>
     <div class="slider-col">
-      <div class="slider-labels"><span>0</span><span>VIT: <span id="val-vit-m0">50</span>%</span><span>100</span></div>
-      <input type="range" id="vit-m0" min="0" max="100" value="50" oninput="updateVit(0)">
+      <div class="slider-labels"><span>0</span><span>VIT: <span id="val-vit-m0">500</span> mm/s</span><span>1500</span></div>
+      <input type="range" id="vit-m0" min="0" max="1500" step="50" value="500" oninput="updateVit(0)">
       <div class="input-zone">
         <span id="wrapper-chk-m0"><input type="checkbox" id="chk-m0" onchange="renderInputs(0)"> Infini</span>
         <span id="input-container-m0"><input type="number" id="val-m0" class="tours-input" placeholder="nb. Sec." step="0.5" value="3.0"></span>
@@ -78,88 +84,114 @@ const char* htmlPage = R"rawliteral(
       </div>
     </div>
   </div>
+
   <div class="card motor-row">
     <div class="motor-label">M1<br><small>(Gauche)</small></div>
     <div class="mode-col">
       <button id="btn-m1-FWD" class="state-btn active" onclick="setMode(1, 'FWD')">FWD</button>
       <button id="btn-m1-BWD" class="state-btn" onclick="setMode(1, 'BWD')">BWD</button>
-      <button id="btn-m1-TOURS" class="state-btn" onclick="setMode(1, 'TOURS')">TOURS</button>
+      <button id="btn-m1-DIST" class="state-btn" onclick="setMode(1, 'DIST')">DIST.</button>
     </div>
     <div class="slider-col">
-      <div class="slider-labels"><span>0</span><span>VIT: <span id="val-vit-m1">50</span>%</span><span>100</span></div>
-      <input type="range" id="vit-m1" min="0" max="100" value="50" oninput="updateVit(1)">
+      <div class="slider-labels"><span>0</span><span>VIT: <span id="val-vit-m1">500</span> mm/s</span><span>1500</span></div>
+      <input type="range" id="vit-m1" min="0" max="1500" step="50" value="500" oninput="updateVit(1)">
       <div class="input-zone">
         <span id="wrapper-chk-m1"><input type="checkbox" id="chk-m1" onchange="renderInputs(1)"> Infini</span>
         <span id="input-container-m1"><input type="number" id="val-m1" class="tours-input" placeholder="nb. Sec." step="0.5" value="3.0"></span>
       </div>
     </div>
     <div class="action-col">
-      <div class="rpm-box">RPM M1<span class="rpm-value" id="rpm-m1">0.0</span></div>
+      <div class="telemetry-box">
+        <div class="telemetry-row"><span>VIT:</span> <span class="speed-val" id="vit-m1-val">0</span></div>
+        <div class="divider"></div>
+        <div class="telemetry-row"><span>PWM:</span> <span class="pwm-val" id="pwm-m1-val">0%</span></div>
+      </div>
       <div class="action-buttons"><button class="send-btn" onclick="envoyer(1)">ENVOYER</button><button class="stop-btn" onclick="stopMoteur(1)">STOP</button></div>
     </div>
   </div>
+
   <div class="card motor-row">
     <div class="motor-label">M2<br><small>(Droit)</small></div>
     <div class="mode-col">
       <button id="btn-m2-FWD" class="state-btn active" onclick="setMode(2, 'FWD')">FWD</button>
       <button id="btn-m2-BWD" class="state-btn" onclick="setMode(2, 'BWD')">BWD</button>
-      <button id="btn-m2-TOURS" class="state-btn" onclick="setMode(2, 'TOURS')">TOURS</button>
+      <button id="btn-m2-DIST" class="state-btn" onclick="setMode(2, 'DIST')">DIST.</button>
     </div>
     <div class="slider-col">
-      <div class="slider-labels"><span>0</span><span>VIT: <span id="val-vit-m2">50</span>%</span><span>100</span></div>
-      <input type="range" id="vit-m2" min="0" max="100" value="50" oninput="updateVit(2)">
+      <div class="slider-labels"><span>0</span><span>VIT: <span id="val-vit-m2">500</span> mm/s</span><span>1500</span></div>
+      <input type="range" id="vit-m2" min="0" max="1500" step="50" value="500" oninput="updateVit(2)">
       <div class="input-zone">
         <span id="wrapper-chk-m2"><input type="checkbox" id="chk-m2" onchange="renderInputs(2)"> Infini</span>
         <span id="input-container-m2"><input type="number" id="val-m2" class="tours-input" placeholder="nb. Sec." step="0.5" value="3.0"></span>
       </div>
     </div>
     <div class="action-col">
-      <div class="rpm-box">RPM M2<span class="rpm-value" id="rpm-m2">0.0</span></div>
+      <div class="telemetry-box">
+        <div class="telemetry-row"><span>VIT:</span> <span class="speed-val" id="vit-m2-val">0</span></div>
+        <div class="divider"></div>
+        <div class="telemetry-row"><span>PWM:</span> <span class="pwm-val" id="pwm-m2-val">0%</span></div>
+      </div>
       <div class="action-buttons"><button class="send-btn" onclick="envoyer(2)">ENVOYER</button><button class="stop-btn" onclick="stopMoteur(2)">STOP</button></div>
     </div>
   </div>
+
   <div class="card" style="padding: 10px; width: 100%; max-width: 850px;">
     <button class="stop-all-btn" onclick="stopAll()">⚠️ STOP ALL ⚠️</button>
     <p id="status" style="margin-top: 10px;">Prêt.</p>
   </div>
+
   <script>
     let modes = { 1: 'FWD', 2: 'FWD', 0: 'FWD' };
     function updateVit(id) { document.getElementById('val-vit-m' + id).innerText = document.getElementById('vit-m' + id).value; }
+    
     function setMode(id, mode) {
       modes[id] = mode;
       document.getElementById('btn-m'+id+'-FWD').classList.remove('active');
       document.getElementById('btn-m'+id+'-BWD').classList.remove('active');
-      document.getElementById('btn-m'+id+'-TOURS').classList.remove('active');
+      document.getElementById('btn-m'+id+'-DIST').classList.remove('active');
       document.getElementById('btn-m'+id+'-'+mode).classList.add('active');
       renderInputs(id);
     }
+    
     function renderInputs(id) {
       let mode = modes[id];
       let isInfini = document.getElementById('chk-m'+id).checked;
       let container = document.getElementById('input-container-m'+id);
-      if (mode === 'TOURS') {
+      if (mode === 'DIST') {
         document.getElementById('wrapper-chk-m'+id).style.display = 'none';
-        container.innerHTML = '<input type="number" id="val-m'+id+'" class="tours-input" placeholder="nb. Tours" step="0.1" value="1.0">';
+        container.innerHTML = '<input type="number" id="val-m'+id+'" class="tours-input" placeholder="mm" step="10" value="500">';
       } else {
         document.getElementById('wrapper-chk-m'+id).style.display = 'inline-block';
         if (isInfini) { container.innerHTML = '<span style="color: #28a745; font-size:18px;">∞</span>'; } 
         else { container.innerHTML = '<input type="number" id="val-m'+id+'" class="tours-input" placeholder="nb. Sec." step="0.5" value="3.0">'; }
       }
     }
+    
     function envoyer(id) {
       let mode = modes[id]; let vit = document.getElementById('vit-m' + id).value; let cmd = "";
-      if (mode === 'TOURS') { let tours = document.getElementById('val-m'+id).value || "1"; cmd = id + " A " + vit + " tour " + tours; } 
-      else {
+      if (mode === 'DIST') { 
+        let dist = document.getElementById('val-m'+id).value || "500"; 
+        cmd = id + " A " + vit + " tour " + dist; 
+      } else {
         let isInfini = document.getElementById('chk-m'+id).checked; let dir = (mode === 'FWD') ? " A " : " R ";
         if (isInfini) { cmd = id + dir + vit; } else { let sec = document.getElementById('val-m'+id).value || "3"; cmd = id + dir + vit + " sec " + sec; }
       }
       executerRequete(cmd);
     }
+    
     function stopMoteur(id) { if(id === 0) stopAll(); else executerRequete(id + " A 0"); }
     function stopAll() { fetch('/cmd?c=1 A 0').then(() => setTimeout(() => fetch('/cmd?c=2 A 0'), 100)); document.getElementById("status").innerText = "ARRÊT GÉNÉRAL"; }
     function updateTicks() { fetch('/tune?val=' + encodeURIComponent(document.getElementById('ticksInput').value)); }
     function executerRequete(cmd) { fetch('/cmd?c=' + encodeURIComponent(cmd)).then(() => document.getElementById("status").innerText = "Commande : " + cmd); }
-    setInterval(function() { fetch('/status').then(r => r.json()).then(data => { document.getElementById('rpm-m1').innerText = data.rpm1; document.getElementById('rpm-m2').innerText = data.rpm2; }); }, 150);
+    
+    setInterval(function() { 
+      fetch('/status').then(r => r.json()).then(data => { 
+        document.getElementById('vit-m1-val').innerText = Math.round(Math.abs(data.speed1)); 
+        document.getElementById('vit-m2-val').innerText = Math.round(Math.abs(data.speed2)); 
+        document.getElementById('pwm-m1-val').innerText = data.pwm1 + "%"; 
+        document.getElementById('pwm-m2-val').innerText = data.pwm2 + "%"; 
+      }); 
+    }, 150);
 
     let gamepadIndex = null; let lastCmdM1 = ""; let lastCmdM2 = "";
     window.addEventListener("gamepadconnected", (e) => { gamepadIndex = e.gamepad.index; document.getElementById("status").innerHTML = "🎮 <b>Manette détectée :</b> " + e.gamepad.id; document.getElementById("gamepad-ui").style.display = "flex"; });

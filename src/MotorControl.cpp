@@ -4,145 +4,168 @@
 
 volatile float ticksPerRevolution = 340.0; 
 
-volatile int currentSpeedM1 = 0, targetSpeedM1 = 0, requestedSpeedM1 = 0;
-volatile int currentSpeedM2 = 0, targetSpeedM2 = 0, requestedSpeedM2 = 0;
-unsigned long lastRampTime = 0;
+// --- VARIABLES PID ---
+float Kp = 0.5;  
+float Ki = 0.0;  
+float Kd = 0.0;  
 
-volatile bool isPositionModeM1 = false, isPositionModeM2 = false;
-volatile long startTicksM1 = 0, profileDtotalM1 = 0, profileDaccelM1 = 0, profileDdecelM1 = 0;
-volatile long startTicksM2 = 0, profileDtotalM2 = 0, profileDaccelM2 = 0, profileDdecelM2 = 0;
-volatile int profileVmaxM1 = 0, profilePhaseM1 = 1;
-volatile int profileVmaxM2 = 0, profilePhaseM2 = 1;
+const float ACCEL_MMS2 = 1500.0; 
 
-volatile bool isTimeModeM1 = false, isTimeModeM2 = false;
-volatile unsigned long timeStartM1 = 0, timeStartM2 = 0;
-volatile long timeDurationM1 = 0, timeTdecelM1 = 0;
-volatile long timeDurationM2 = 0, timeTdecelM2 = 0;
-volatile int timeVmaxM1 = 0, timeVmaxM2 = 0;
+bool isDistanceModeM1 = false;
+bool isDistanceModeM2 = false;
 
-volatile float globalRpmM1 = 0.0, globalRpmM2 = 0.0;
+float targetPosM1_mm = 0.0, targetPosM2_mm = 0.0;
+float currentSpeedM1_mms = 0.0, currentSpeedM2_mms = 0.0;
+float finalTargetPosM1_mm = 0.0, finalTargetPosM2_mm = 0.0;
+float reqSpeedM1_mms = 0.0, reqSpeedM2_mms = 0.0;
+float maxSpeedDistM1 = 0.0, maxSpeedDistM2 = 0.0;
 
-ESP32Encoder encoderM1;
-ESP32Encoder encoderM2;
+float integralM1 = 0, integralM2 = 0;
+float lastErrorM1 = 0, lastErrorM2 = 0;
+unsigned long lastPidTime = 0;
+
+volatile float globalSpeedM1 = 0.0, globalSpeedM2 = 0.0; 
+int currentPwmM1 = 0, currentPwmM2 = 0; // Variables ajoutées pour l'affichage du PWM
+
 unsigned long lastSpeedTime = 0;
 const unsigned long SPEED_INTERVAL = 50; 
 long lastCountM1 = 0, lastCountM2 = 0;
 
-float getRpmM1() { return globalRpmM1; }
-float getRpmM2() { return globalRpmM2; }
+ESP32Encoder encoderM1;
+ESP32Encoder encoderM2;
+
+// --- GETTERS ---
+float getSpeedM1() { return globalSpeedM1; }
+float getSpeedM2() { return globalSpeedM2; }
+int getPwmM1() { return currentPwmM1; } 
+int getPwmM2() { return currentPwmM2; }
 float getTicksPerRevolution() { return ticksPerRevolution; }
 void setTicksPerRevolution(float val) { ticksPerRevolution = val; }
 
-void updateMotorHardware(int currentSpeed, int dirPin, int pwmPin, bool forwardState) {
-  int pwmValue = map(abs(currentSpeed), 0, 100, 0, 255);
-  bool dirState = (currentSpeed >= 0) ? forwardState : !forwardState; 
+void updateMotorHardware(int pwmValue, int dirPin, int pwmPin, bool forwardState) {
+  bool dirState = (pwmValue >= 0) ? forwardState : !forwardState; 
   digitalWrite(dirPin, dirState);
-  ledcWrite(pwmPin, pwmValue); 
+  ledcWrite(pwmPin, abs(pwmValue)); 
 }
 
 void initMotors() {
   pinMode(M1_DIR_PIN, OUTPUT); pinMode(M2_DIR_PIN, OUTPUT);
   ledcAttach(M1_PWM_PIN, 5000, 8); ledcAttach(M2_PWM_PIN, 5000, 8);
+  
   ESP32Encoder::useInternalWeakPullResistors = puType::up;
   encoderM1.attachFullQuad(M1_ENCA_PIN, M1_ENCB_PIN); 
   encoderM2.attachFullQuad(M2_ENCA_PIN, M2_ENCB_PIN);
   encoderM1.clearCount(); encoderM2.clearCount();
 }
 
-void configurerProfilMoteur(int motorId, int currentDir, int speedPct, String keyword, float value) {
-  if (motorId == 1) {
-    requestedSpeedM1 = speedPct * currentDir;
-    if (keyword == "tour" || keyword == "tours") {
-      isTimeModeM1 = false; profileDtotalM1 = (long)(value * ticksPerRevolution);
-      startTicksM1 = encoderM1.getCount() * M1_ENCODER_DIR;
-      profileDaccelM1 = 0; profilePhaseM1 = 1; targetSpeedM1 = requestedSpeedM1;
-      isPositionModeM1 = true;
-    } else if (keyword == "sec" || keyword == "secondes") {
-      isPositionModeM1 = false; long totalMs = value * 1000; long timeNeeded = abs(speedPct) * RAMP_INTERVAL; 
-      if (totalMs >= 2 * timeNeeded) { timeVmaxM1 = abs(speedPct); timeTdecelM1 = totalMs - timeNeeded; } 
-      else { timeVmaxM1 = totalMs / (2 * RAMP_INTERVAL); timeTdecelM1 = totalMs / 2; }
-      timeDurationM1 = totalMs; timeStartM1 = millis(); targetSpeedM1 = timeVmaxM1 * currentDir; isTimeModeM1 = true;
-    } else { isPositionModeM1 = false; isTimeModeM1 = false; targetSpeedM1 = requestedSpeedM1; }
-  } else if (motorId == 2) {
-    requestedSpeedM2 = speedPct * currentDir;
-    if (keyword == "tour" || keyword == "tours") {
-      isTimeModeM2 = false; profileDtotalM2 = (long)(value * ticksPerRevolution);
-      startTicksM2 = encoderM2.getCount() * M2_ENCODER_DIR;
-      profileDaccelM2 = 0; profilePhaseM2 = 1; targetSpeedM2 = requestedSpeedM2;
-      isPositionModeM2 = true;
-    } else if (keyword == "sec" || keyword == "secondes") {
-      isPositionModeM2 = false; long totalMs = value * 1000; long timeNeeded = abs(speedPct) * RAMP_INTERVAL;
-      if (totalMs >= 2 * timeNeeded) { timeVmaxM2 = abs(speedPct); timeTdecelM2 = totalMs - timeNeeded; } 
-      else { timeVmaxM2 = totalMs / (2 * RAMP_INTERVAL); timeTdecelM2 = totalMs / 2; }
-      timeDurationM2 = totalMs; timeStartM2 = millis(); targetSpeedM2 = timeVmaxM2 * currentDir; isTimeModeM2 = true;
-    } else { isPositionModeM2 = false; isTimeModeM2 = false; targetSpeedM2 = requestedSpeedM2; }
+void setVelocity(int motorId, float speed_mms) {
+  if (motorId == 1 || motorId == 0) { isDistanceModeM1 = false; reqSpeedM1_mms = speed_mms; }
+  if (motorId == 2 || motorId == 0) { isDistanceModeM2 = false; reqSpeedM2_mms = speed_mms; }
+}
+
+void moveDistance(int motorId, float distance_mm, float speed_mms) {
+  if (motorId == 1 || motorId == 0) {
+    isDistanceModeM1 = true;
+    finalTargetPosM1_mm = targetPosM1_mm + distance_mm;
+    maxSpeedDistM1 = abs(speed_mms);
+  }
+  if (motorId == 2 || motorId == 0) {
+    isDistanceModeM2 = true;
+    finalTargetPosM2_mm = targetPosM2_mm + distance_mm;
+    maxSpeedDistM2 = abs(speed_mms);
   }
 }
 
 void traiterCommande(String input) {
   input.trim();
   if (input.length() > 0) {
-    int motorId; char dirChar; int speedPct; char keyword[10] = ""; float value = 0;
-    if (sscanf(input.c_str(), "%d %c %d %9s %f", &motorId, &dirChar, &speedPct, keyword, &value) >= 3) {
-      speedPct = constrain(speedPct, 0, 100);
+    int motorId; char dirChar; int speedVal; char keyword[10] = ""; float value = 0;
+    if (sscanf(input.c_str(), "%d %c %d %9s %f", &motorId, &dirChar, &speedVal, keyword, &value) >= 3) {
+      speedVal = constrain(speedVal, 0, (int)MAX_SPEED_MMS);
       int currentDir = (dirChar == 'A' || dirChar == 'a') ? 1 : -1;
+      
+      if (speedVal == 0) { setVelocity(motorId, 0.0); return; }
+
       String kw = String(keyword); kw.toLowerCase();
-      if (motorId == 0) { configurerProfilMoteur(1, currentDir, speedPct, kw, value); configurerProfilMoteur(2, currentDir, speedPct, kw, value); } 
-      else { configurerProfilMoteur(motorId, currentDir, speedPct, kw, value); }
+      if (kw == "tour" || kw == "tours") { moveDistance(motorId, value, speedVal); } 
+      else { setVelocity(motorId, speedVal * currentDir); }
     }
   }
 }
 
+void updateProfile(bool isDistanceMode, float &targetPos, float finalTargetPos, float &currentSpeed, float reqSpeed, float maxSpeedDist, float dt) {
+  if (isDistanceMode) {
+    float distanceToGo = finalTargetPos - targetPos;
+    float dir = (distanceToGo > 0) ? 1.0 : -1.0;
+
+    if (abs(distanceToGo) < 1.0) { 
+      currentSpeed = 0.0; targetPos = finalTargetPos;
+    } else {
+      float stopDist = (currentSpeed * currentSpeed) / (2.0 * ACCEL_MMS2);
+      if (abs(distanceToGo) <= stopDist) { currentSpeed -= dir * ACCEL_MMS2 * dt; } 
+      else { currentSpeed += dir * ACCEL_MMS2 * dt; if (abs(currentSpeed) > maxSpeedDist) currentSpeed = dir * maxSpeedDist; }
+    }
+  } else {
+    if (currentSpeed < reqSpeed) { currentSpeed += ACCEL_MMS2 * dt; if (currentSpeed > reqSpeed) currentSpeed = reqSpeed; } 
+    else if (currentSpeed > reqSpeed) { currentSpeed -= ACCEL_MMS2 * dt; if (currentSpeed < reqSpeed) currentSpeed = reqSpeed; }
+  }
+  targetPos += currentSpeed * dt;
+}
+
+void computePID() {
+  unsigned long now = millis();
+  float dt = (now - lastPidTime) / 1000.0; 
+  if (dt < 0.01) return; 
+  lastPidTime = now;
+
+  updateProfile(isDistanceModeM1, targetPosM1_mm, finalTargetPosM1_mm, currentSpeedM1_mms, reqSpeedM1_mms, maxSpeedDistM1, dt);
+  updateProfile(isDistanceModeM2, targetPosM2_mm, finalTargetPosM2_mm, currentSpeedM2_mms, reqSpeedM2_mms, maxSpeedDistM2, dt);
+
+  float currentPosM1_mm = (encoderM1.getCount() * M1_ENCODER_DIR) / TICKS_PER_MM;
+  float currentPosM2_mm = (encoderM2.getCount() * M2_ENCODER_DIR) / TICKS_PER_MM;
+
+  float errorM1 = targetPosM1_mm - currentPosM1_mm;
+  float errorM2 = targetPosM2_mm - currentPosM2_mm;
+
+  integralM1 += errorM1 * dt;
+  float derivativeM1 = (errorM1 - lastErrorM1) / dt;
+  float outputM1 = (Kp * errorM1) + (Ki * integralM1) + (Kd * derivativeM1);
+  lastErrorM1 = errorM1;
+
+  integralM2 += errorM2 * dt;
+  float derivativeM2 = (errorM2 - lastErrorM2) / dt;
+  float outputM2 = (Kp * errorM2) + (Ki * integralM2) + (Kd * derivativeM2);
+  lastErrorM2 = errorM2;
+
+  // On sauvegarde le PWM réel avant de l'envoyer
+  currentPwmM1 = constrain((int)outputM1, -255, 255);
+  currentPwmM2 = constrain((int)outputM2, -255, 255);
+
+  updateMotorHardware(currentPwmM1, M1_DIR_PIN, M1_PWM_PIN, M1_FORWARD_STATE);
+  updateMotorHardware(currentPwmM2, M2_DIR_PIN, M2_PWM_PIN, M2_FORWARD_STATE);
+}
+
 void updateMotors() {
+  computePID(); 
+
   unsigned long currentMillis = millis();
-  if (isPositionModeM1) {
-    long traveled = abs(encoderM1.getCount() * M1_ENCODER_DIR - startTicksM1); long remaining = profileDtotalM1 - traveled;
-    if (remaining <= 0 || traveled >= profileDtotalM1) { targetSpeedM1 = 0; currentSpeedM1 = 0; isPositionModeM1 = false; } 
-    else {
-      if (profilePhaseM1 == 1) {
-        if (abs(currentSpeedM1) >= abs(requestedSpeedM1) && profileDaccelM1 == 0) profileDaccelM1 = traveled;
-        if (profileDaccelM1 > 0) { if (remaining <= profileDaccelM1) { profilePhaseM1 = 2; profileDdecelM1 = remaining; profileVmaxM1 = abs(currentSpeedM1); } } 
-        else { if (remaining <= traveled) { profilePhaseM1 = 2; profileDdecelM1 = remaining; profileVmaxM1 = abs(currentSpeedM1); } }
-      }
-      if (profilePhaseM1 == 2) {
-        float ratio = (float)remaining / profileDdecelM1; int safeSpeed = (int)(profileVmaxM1 * sqrt(ratio));
-        if (safeSpeed < MIN_SPEED) safeSpeed = MIN_SPEED;
-        currentSpeedM1 = safeSpeed * (requestedSpeedM1 >= 0 ? 1 : -1); targetSpeedM1 = currentSpeedM1;
-      }
-    }
-  }
-  if (isPositionModeM2) {
-    long traveled = abs(encoderM2.getCount() * M2_ENCODER_DIR - startTicksM2); long remaining = profileDtotalM2 - traveled;
-    if (remaining <= 0 || traveled >= profileDtotalM2) { targetSpeedM2 = 0; currentSpeedM2 = 0; isPositionModeM2 = false; } 
-    else {
-      if (profilePhaseM2 == 1) {
-        if (abs(currentSpeedM2) >= abs(requestedSpeedM2) && profileDaccelM2 == 0) profileDaccelM2 = traveled;
-        if (profileDaccelM2 > 0) { if (remaining <= profileDaccelM2) { profilePhaseM2 = 2; profileDdecelM2 = remaining; profileVmaxM2 = abs(currentSpeedM2); } } 
-        else { if (remaining <= traveled) { profilePhaseM2 = 2; profileDdecelM2 = remaining; profileVmaxM2 = abs(currentSpeedM2); } }
-      }
-      if (profilePhaseM2 == 2) {
-        float ratio = (float)remaining / profileDdecelM2; int safeSpeed = (int)(profileVmaxM2 * sqrt(ratio));
-        if (safeSpeed < MIN_SPEED) safeSpeed = MIN_SPEED;
-        currentSpeedM2 = safeSpeed * (requestedSpeedM2 >= 0 ? 1 : -1); targetSpeedM2 = currentSpeedM2;
-      }
-    }
-  }
-  if (isTimeModeM1) { long elapsed = currentMillis - timeStartM1; if (elapsed >= timeDurationM1) { targetSpeedM1 = 0; currentSpeedM1 = 0; isTimeModeM1 = false; } else if (elapsed >= timeTdecelM1) { targetSpeedM1 = 0; } }
-  if (isTimeModeM2) { long elapsed = currentMillis - timeStartM2; if (elapsed >= timeDurationM2) { targetSpeedM2 = 0; currentSpeedM2 = 0; isTimeModeM2 = false; } else if (elapsed >= timeTdecelM2) { targetSpeedM2 = 0; } }
-
-  if (currentMillis - lastRampTime >= RAMP_INTERVAL) {
-    lastRampTime = currentMillis;
-    if (!(isPositionModeM1 && profilePhaseM1 == 2)) { if (currentSpeedM1 < targetSpeedM1) currentSpeedM1 += RAMP_STEP; else if (currentSpeedM1 > targetSpeedM1) currentSpeedM1 -= RAMP_STEP; }
-    if (!(isPositionModeM2 && profilePhaseM2 == 2)) { if (currentSpeedM2 < targetSpeedM2) currentSpeedM2 += RAMP_STEP; else if (currentSpeedM2 > targetSpeedM2) currentSpeedM2 -= RAMP_STEP; }
-    updateMotorHardware(currentSpeedM1, M1_DIR_PIN, M1_PWM_PIN, M1_FORWARD_STATE);
-    updateMotorHardware(currentSpeedM2, M2_DIR_PIN, M2_PWM_PIN, M2_FORWARD_STATE);
-  }
-
   if (currentMillis - lastSpeedTime >= SPEED_INTERVAL) {
     lastSpeedTime = currentMillis;
-    long ticksM1 = encoderM1.getCount() * M1_ENCODER_DIR; long ticksM2 = encoderM2.getCount() * M2_ENCODER_DIR;
-    long rawSpeedM1 = ticksM1 - lastCountM1; long rawSpeedM2 = ticksM2 - lastCountM2;
+    long ticksM1 = encoderM1.getCount() * M1_ENCODER_DIR; 
+    long ticksM2 = encoderM2.getCount() * M2_ENCODER_DIR;
+    long rawSpeedM1 = ticksM1 - lastCountM1; 
+    long rawSpeedM2 = ticksM2 - lastCountM2;
     lastCountM1 = ticksM1; lastCountM2 = ticksM2;
-    globalRpmM1 = (rawSpeedM1 * 20.0 * 60.0) / ticksPerRevolution; globalRpmM2 = (rawSpeedM2 * 20.0 * 60.0) / ticksPerRevolution;
+
+    globalSpeedM1 = (rawSpeedM1 * (1000.0 / SPEED_INTERVAL)) / TICKS_PER_MM;
+    globalSpeedM2 = (rawSpeedM2 * (1000.0 / SPEED_INTERVAL)) / TICKS_PER_MM;
+
+    // Nouvel affichage épuré
+    static unsigned long lastSerialPrint = 0;
+    if (currentMillis - lastSerialPrint >= 200) {
+      lastSerialPrint = currentMillis;
+      Serial.printf("PWM M1: %4d | Vit M1: %4.0f mm/s || PWM M2: %4d | Vit M2: %4.0f mm/s\n", 
+                    currentPwmM1, globalSpeedM1, currentPwmM2, globalSpeedM2);
+    }
   }
 }

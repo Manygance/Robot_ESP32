@@ -25,8 +25,10 @@ void initWebInterface() {
   server.on("/cmd", []() { if (server.hasArg("c")) { traiterCommande(server.arg("c")); server.send(200, "text/plain", "OK"); } });
   server.on("/tune", []() { if (server.hasArg("val")) { setTicksPerRevolution(server.arg("val").toFloat()); server.send(200, "text/plain", "OK"); } });
   server.on("/status", []() {
-    String json = "{\"rpm1\":" + String(getRpmM1(), 1) + ", \"rpm2\":" + String(getRpmM2(), 1) + ", \"ticks\":" + String(getTicksPerRevolution(), 1) + "}";
-    server.send(200, "application/json", json);
+    String json = "{\"speed1\": " + String(getSpeedM1()) + 
+              ", \"speed2\": " + String(getSpeedM2()) + 
+              ", \"pwm1\": " + String(abs(getPwmM1()) * 100 / 255) + 
+              ", \"pwm2\": " + String(abs(getPwmM2()) * 100 / 255) + "}";server.send(200, "application/json", json);
   });
   server.begin();
   xTaskCreatePinnedToCore(WebTaskCode, "WebTask", 10000, NULL, 1, &WebTask, 0);
