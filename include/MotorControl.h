@@ -12,6 +12,7 @@ const float MAX_SPEED_MMS = 1500.0;
 void initMotors();
 void updateMotors();
 void traiterCommande(String input);
+void setAcceleration(float accel);
 
 // --- LECTURE DES DONNÉES ---
 float getSpeedM1(); 
@@ -24,3 +25,4 @@ void setTicksPerRevolution(float val);
 // --- COMMANDES PID ---
 void setVelocity(int motorId, float speed_mms);
 void moveDistance(int motorId, float distance_mm, float speed_mms);
+bool isMovementFinished();

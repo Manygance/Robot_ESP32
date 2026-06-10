@@ -1,15 +1,14 @@
 #include "MotorControl.h"
 #include "Config.h"
+#include "Strategy.h" 
 #include <ESP32Encoder.h>
 
 volatile float ticksPerRevolution = 340.0; 
+float ACCEL_MMS2 = 1500.0; 
 
-// --- VARIABLES PID ---
 float Kp = 0.5;  
 float Ki = 0.0;  
 float Kd = 0.0;  
-
-const float ACCEL_MMS2 = 1500.0; 
 
 bool isDistanceModeM1 = false;
 bool isDistanceModeM2 = false;
@@ -25,7 +24,7 @@ float lastErrorM1 = 0, lastErrorM2 = 0;
 unsigned long lastPidTime = 0;
 
 volatile float globalSpeedM1 = 0.0, globalSpeedM2 = 0.0; 
-int currentPwmM1 = 0, currentPwmM2 = 0; // Variables ajoutées pour l'affichage du PWM
+int currentPwmM1 = 0, currentPwmM2 = 0; 
 
 unsigned long lastSpeedTime = 0;
 const unsigned long SPEED_INTERVAL = 50; 
@@ -34,13 +33,25 @@ long lastCountM1 = 0, lastCountM2 = 0;
 ESP32Encoder encoderM1;
 ESP32Encoder encoderM2;
 
-// --- GETTERS ---
+// Lien avec la fonction définie dans main.cpp
+extern void resetOdometry(); 
+
 float getSpeedM1() { return globalSpeedM1; }
 float getSpeedM2() { return globalSpeedM2; }
-int getPwmM1() { return currentPwmM1; } 
-int getPwmM2() { return currentPwmM2; }
+int getPwmM1() { return currentPwmM1; }     
+int getPwmM2() { return currentPwmM2; }     
 float getTicksPerRevolution() { return ticksPerRevolution; }
 void setTicksPerRevolution(float val) { ticksPerRevolution = val; }
+
+void setAcceleration(float accel) { 
+    ACCEL_MMS2 = accel; 
+}
+
+bool isMovementFinished() {
+  bool m1Done = (!isDistanceModeM1) || (abs(targetPosM1_mm - finalTargetPosM1_mm) < 1.0 && currentSpeedM1_mms == 0.0);
+  bool m2Done = (!isDistanceModeM2) || (abs(targetPosM2_mm - finalTargetPosM2_mm) < 1.0 && currentSpeedM2_mms == 0.0);
+  return m1Done && m2Done;
+}
 
 void updateMotorHardware(int pwmValue, int dirPin, int pwmPin, bool forwardState) {
   bool dirState = (pwmValue >= 0) ? forwardState : !forwardState; 
@@ -78,9 +89,21 @@ void moveDistance(int motorId, float distance_mm, float speed_mms) {
 
 void traiterCommande(String input) {
   input.trim();
+  
+  if (input == "strat start") { startStrategy(); return; }
+  if (input == "strat stop") { stopStrategy(); return; }
+  if (input == "reset odo") { resetOdometry(); return; } 
+  
+  if (input.startsWith("accel ")) { 
+    setAcceleration(input.substring(6).toFloat());
+    return;
+  }
+
   if (input.length() > 0) {
     int motorId; char dirChar; int speedVal; char keyword[10] = ""; float value = 0;
     if (sscanf(input.c_str(), "%d %c %d %9s %f", &motorId, &dirChar, &speedVal, keyword, &value) >= 3) {
+      stopStrategy(); 
+
       speedVal = constrain(speedVal, 0, (int)MAX_SPEED_MMS);
       int currentDir = (dirChar == 'A' || dirChar == 'a') ? 1 : -1;
       
@@ -137,7 +160,6 @@ void computePID() {
   float outputM2 = (Kp * errorM2) + (Ki * integralM2) + (Kd * derivativeM2);
   lastErrorM2 = errorM2;
 
-  // On sauvegarde le PWM réel avant de l'envoyer
   currentPwmM1 = constrain((int)outputM1, -255, 255);
   currentPwmM2 = constrain((int)outputM2, -255, 255);
 
@@ -146,6 +168,7 @@ void computePID() {
 }
 
 void updateMotors() {
+  updateStrategy(); 
   computePID(); 
 
   unsigned long currentMillis = millis();
@@ -159,13 +182,5 @@ void updateMotors() {
 
     globalSpeedM1 = (rawSpeedM1 * (1000.0 / SPEED_INTERVAL)) / TICKS_PER_MM;
     globalSpeedM2 = (rawSpeedM2 * (1000.0 / SPEED_INTERVAL)) / TICKS_PER_MM;
-
-    // Nouvel affichage épuré
-    static unsigned long lastSerialPrint = 0;
-    if (currentMillis - lastSerialPrint >= 200) {
-      lastSerialPrint = currentMillis;
-      Serial.printf("PWM M1: %4d | Vit M1: %4.0f mm/s || PWM M2: %4d | Vit M2: %4.0f mm/s\n", 
-                    currentPwmM1, globalSpeedM1, currentPwmM2, globalSpeedM2);
-    }
   }
 }

@@ -20,19 +20,16 @@ const char* htmlPage = R"rawliteral(
     .input-zone { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: bold; color: #555; }
     .tours-input { width: 90px; padding: 5px; border: 2px solid #ccc; border-radius: 5px; text-align: center; font-weight: bold; }
     .action-col { display: flex; flex-direction: column; align-items: center; gap: 10px; }
-    
-    /* NOUVEAU STYLE POUR LA TÉLÉMÉTRIE */
     .telemetry-box { border: 3px solid #333; border-radius: 10px; padding: 5px 10px; text-align: center; font-size: 11px; font-weight: bold; color: #333; min-width: 110px; background: #f8f9fa; }
     .telemetry-row { display: flex; justify-content: space-between; align-items: center; margin: 3px 0; }
     .speed-val { font-size: 16px; color: #007bff; }
     .pwm-val { font-size: 16px; color: #dc3545; }
     .divider { border-top: 1px solid #ccc; margin: 4px 0; }
-
     .action-buttons { display: flex; gap: 10px; width: 100%; }
     .send-btn, .stop-btn { flex: 1; padding: 8px; font-size: 12px; font-weight: bold; color: white; border: none; border-radius: 6px; cursor: pointer; }
     .send-btn { background-color: #333; }
     .stop-btn { background-color: #dc3545; }
-    .stop-all-btn { width: 100%; padding: 15px; font-size: 24px; font-weight: bold; background-color: #dc3545; color: white; border: none; border-radius: 12px; cursor: pointer; box-shadow: 0 6px 15px rgba(220,53,69,0.4); }
+    .stop-all-btn { padding: 15px; font-size: 24px; font-weight: bold; background-color: #dc3545; color: white; border: none; border-radius: 12px; cursor: pointer; box-shadow: 0 6px 15px rgba(220,53,69,0.4); }
     #status { font-weight: bold; color: #007bff; text-align: center; margin: 0; }
     .config-zone { display: flex; justify-content: center; align-items: center; gap: 15px; background: #fff3cd; padding: 10px; border-radius: 8px; color: #856404; font-weight: bold; margin-bottom: 10px; }
     .config-zone input { padding: 5px; width: 80px; text-align: center; font-weight: bold; border: 1px solid #ffeeba; border-radius: 4px; }
@@ -44,21 +41,32 @@ const char* htmlPage = R"rawliteral(
 </head>
 <body>
   <h2>Tableau de Bord du Robot</h2>
+  
   <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 850px;">
+    <div class="card config-zone" style="flex: 1; min-width: 280px; margin: 0;">
+      <label>Accél. (mm/s²):</label>
+      <input type="number" id="accelInput" value="1500" step="100">
+      <button onclick="updateAccel()">Appliquer</button>
+    </div>
+    
     <div class="card config-zone" style="flex: 1; min-width: 280px; margin: 0;">
       <label>Ticks / Tour :</label>
       <input type="number" id="ticksInput" value="340.0" step="1">
       <button onclick="updateTicks()">Appliquer</button>
     </div>
-    <div class="card config-zone gamepad-zone" id="gamepad-ui" style="flex: 1; min-width: 280px; margin: 0;">
-      <div class="gamepad-slider-group">
-        <label>🎮 Limite Vitesse : <span id="val-gamepad-max">800</span> mm/s</label>
-        <input type="range" id="gamepad-max" min="100" max="1500" step="50" value="800" oninput="document.getElementById('val-gamepad-max').innerText = this.value">
-      </div>
-      <div class="gamepad-slider-group">
-        <label>🔄 Sensibilité Virage : <span id="val-gamepad-sens">60</span>%</label>
-        <input type="range" id="gamepad-sens" min="10" max="100" value="60" oninput="document.getElementById('val-gamepad-sens').innerText = this.value">
-      </div>
+  </div>
+
+  <div class="card config-zone gamepad-zone" id="gamepad-ui" style="width: 100%; max-width: 810px;">
+    <div class="gamepad-slider-group" style="width:100%; justify-content:center; color:#155724; font-weight:bold;">
+      Gâchette Droite (ZR) : Lancer | Gâchette Gauche (ZL) : Annuler
+    </div>
+    <div class="gamepad-slider-group">
+      <label>🎮 Limite Vitesse : <span id="val-gamepad-max">800</span> mm/s</label>
+      <input type="range" id="gamepad-max" min="100" max="1500" step="50" value="800" oninput="document.getElementById('val-gamepad-max').innerText = this.value">
+    </div>
+    <div class="gamepad-slider-group">
+      <label>🔄 Sensibilité Virage : <span id="val-gamepad-sens">60</span>%</label>
+      <input type="range" id="gamepad-sens" min="10" max="100" value="60" oninput="document.getElementById('val-gamepad-sens').innerText = this.value">
     </div>
   </div>
   
@@ -136,12 +144,18 @@ const char* htmlPage = R"rawliteral(
   </div>
 
   <div class="card" style="padding: 10px; width: 100%; max-width: 850px;">
-    <button class="stop-all-btn" onclick="stopAll()">⚠️ STOP ALL ⚠️</button>
+    <div style="display: flex; gap: 10px; width: 100%;">
+      <button class="stop-all-btn" style="flex: 2;" onclick="stopAll()">⚠️ STOP ALL ⚠️</button>
+      <button class="stop-all-btn" style="flex: 1; background-color: #ff9800; box-shadow: 0 6px 15px rgba(255,152,0,0.4);" onclick="executerRequete('reset odo')">🔄 RESET ODO</button>
+    </div>
     <p id="status" style="margin-top: 10px;">Prêt.</p>
   </div>
 
   <script>
     let modes = { 1: 'FWD', 2: 'FWD', 0: 'FWD' };
+    
+    function updateAccel() { fetch('/accel?val=' + document.getElementById('accelInput').value); }
+    function updateTicks() { fetch('/tune?val=' + encodeURIComponent(document.getElementById('ticksInput').value)); }
     function updateVit(id) { document.getElementById('val-vit-m' + id).innerText = document.getElementById('vit-m' + id).value; }
     
     function setMode(id, mode) {
@@ -181,7 +195,6 @@ const char* htmlPage = R"rawliteral(
     
     function stopMoteur(id) { if(id === 0) stopAll(); else executerRequete(id + " A 0"); }
     function stopAll() { fetch('/cmd?c=1 A 0').then(() => setTimeout(() => fetch('/cmd?c=2 A 0'), 100)); document.getElementById("status").innerText = "ARRÊT GÉNÉRAL"; }
-    function updateTicks() { fetch('/tune?val=' + encodeURIComponent(document.getElementById('ticksInput').value)); }
     function executerRequete(cmd) { fetch('/cmd?c=' + encodeURIComponent(cmd)).then(() => document.getElementById("status").innerText = "Commande : " + cmd); }
     
     setInterval(function() { 
@@ -194,12 +207,26 @@ const char* htmlPage = R"rawliteral(
     }, 150);
 
     let gamepadIndex = null; let lastCmdM1 = ""; let lastCmdM2 = "";
+    
+    let btnStartPressed = false; 
+    let btnStopPressed = false;
+
     window.addEventListener("gamepadconnected", (e) => { gamepadIndex = e.gamepad.index; document.getElementById("status").innerHTML = "🎮 <b>Manette détectée :</b> " + e.gamepad.id; document.getElementById("gamepad-ui").style.display = "flex"; });
     window.addEventListener("gamepaddisconnected", (e) => { gamepadIndex = null; document.getElementById("gamepad-ui").style.display = "none"; stopAll(); });
+    
     setInterval(() => {
       if (gamepadIndex !== null) {
         let gp = navigator.getGamepads()[gamepadIndex];
         if (gp) {
+          let btnStart = gp.buttons[7].pressed; 
+          let btnStop = gp.buttons[6].pressed; 
+
+          if (btnStart && !btnStartPressed) { executerRequete("strat start"); }
+          if (btnStop && !btnStopPressed) { executerRequete("strat stop"); }
+          
+          btnStartPressed = btnStart;
+          btnStopPressed = btnStop;
+
           let y = -gp.axes[1]; let x = -gp.axes[2];
           if (Math.abs(y) < 0.15) y = 0; if (Math.abs(x) < 0.15) x = 0;
           let sensVirage = parseInt(document.getElementById('gamepad-sens').value) / 100.0; x = x * sensVirage;
@@ -209,6 +236,7 @@ const char* htmlPage = R"rawliteral(
           let valM1 = Math.round(speedLeft * maxLimit); let valM2 = Math.round(speedRight * maxLimit);
           let dirM1 = valM1 >= 0 ? "A" : "R"; let dirM2 = valM2 >= 0 ? "A" : "R";
           let cmdM1 = "1 " + dirM1 + " " + Math.abs(valM1); let cmdM2 = "2 " + dirM2 + " " + Math.abs(valM2);
+          
           if (cmdM1 !== lastCmdM1 || cmdM2 !== lastCmdM2) {
             if (valM1 === 0 && valM2 === 0) { fetch('/cmd?c=1 A 0').then(() => fetch('/cmd?c=2 A 0')); } 
             else { fetch('/cmd?c=' + encodeURIComponent(cmdM1)).then(() => fetch('/cmd?c=' + encodeURIComponent(cmdM2))); }

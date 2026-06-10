@@ -18,6 +18,7 @@ void initWebInterface() {
   while (WiFi.status() != WL_CONNECTED) { delay(500); }
   Serial.println("\nWi-Fi connecté ! IP : "); Serial.println(WiFi.localIP());
 
+  ArduinoOTA.setHostname("Robot-ESP32-Bastien");
   ArduinoOTA.setPassword(OTA_PASSWORD);
   ArduinoOTA.begin();
 
@@ -30,6 +31,7 @@ void initWebInterface() {
               ", \"pwm1\": " + String(abs(getPwmM1()) * 100 / 255) + 
               ", \"pwm2\": " + String(abs(getPwmM2()) * 100 / 255) + "}";server.send(200, "application/json", json);
   });
+  server.on("/accel", []() { if (server.hasArg("val")) { setAcceleration(server.arg("val").toFloat()); server.send(200, "text/plain", "OK"); } });
   server.begin();
   xTaskCreatePinnedToCore(WebTaskCode, "WebTask", 10000, NULL, 1, &WebTask, 0);
 }
